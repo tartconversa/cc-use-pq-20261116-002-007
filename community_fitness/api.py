@@ -11,6 +11,8 @@ from .attendance import Attendance
 from .competition import Competition
 from .disputes import Disputes
 from .errors import DomainError
+from .pilot_analytics import PilotAnalytics
+from .pilot_plans import PilotPlans
 from .publication import Publication
 from .provenance import Provenance
 from .reconciliation import Reconciliation
@@ -114,6 +116,24 @@ class SessionInput(BaseModel):
     expected_event_revision: int
 
 
+class PilotPlanInput(BaseModel):
+    plan_id: str
+    arm: str
+    zone_codes: list[str]
+    slot_start: str
+    slot_end: str
+    rationale: str
+
+
+class PilotCancelInput(BaseModel):
+    rationale: str
+
+
+class PilotAnalysisInput(BaseModel):
+    analysis_id: str
+    snapshot_version: int
+
+
 def create_app(db_path: str | Path | None = None) -> FastAPI:
     path = db_path or os.environ.get('FITNESS_DB', 'fitness.sqlite3')
     store = Store(path)
@@ -127,6 +147,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     reconciliation = Reconciliation(store)
     readiness = Readiness(store)
     sessions = ScoringSessions(store)
+    pilot_plans = PilotPlans(store)
+    pilot_analytics = PilotAnalytics(store)
     application = FastAPI(title='Community Fitness Event Data', version='1.0.0')
     application.state.store = store
 
@@ -308,6 +330,35 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     @application.get('/events/{event_id}/audit')
     def audit(event_id: str, after: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=500)):
         return store.audit_trail(event_id, after, limit)
+
+    @application.post('/events/{event_id}/pilot/plans', status_code=201)
+    def register_pilot_plan(event_id: str, body: PilotPlanInput):
+        return pilot_plans.register(event_id, body.plan_id, body.arm, body.zone_codes,
+                                    body.slot_start, body.slot_end, body.rationale)
+
+    @application.post('/events/{event_id}/pilot/plans/{plan_id}/cancel')
+    def cancel_pilot_plan(event_id: str, plan_id: str, body: PilotCancelInput):
+        return pilot_plans.cancel(event_id, plan_id, body.rationale)
+
+    @application.get('/events/{event_id}/pilot/plans')
+    def list_pilot_plans(event_id: str):
+        return pilot_plans.list_plans(event_id)
+
+    @application.get('/events/{event_id}/pilot/plans/{plan_id}')
+    def pilot_plan_history(event_id: str, plan_id: str):
+        return pilot_plans.history(event_id, plan_id)
+
+    @application.post('/events/{event_id}/pilot/analyses', status_code=201)
+    def run_pilot_analysis(event_id: str, body: PilotAnalysisInput):
+        return pilot_analytics.run(event_id, body.analysis_id, body.snapshot_version)
+
+    @application.get('/events/{event_id}/pilot/analyses')
+    def list_pilot_analyses(event_id: str):
+        return pilot_analytics.list_analyses(event_id)
+
+    @application.get('/events/{event_id}/pilot/analyses/{analysis_id}')
+    def get_pilot_analysis(event_id: str, analysis_id: str):
+        return pilot_analytics.get(event_id, analysis_id)
 
     return application
 

@@ -91,10 +91,27 @@ CREATE TABLE IF NOT EXISTS audit (
  action TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT NOT NULL,
  detail TEXT NOT NULL, at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS pilot_plans (
+ event_id TEXT NOT NULL, plan_id TEXT NOT NULL, version INTEGER NOT NULL,
+ arm TEXT NOT NULL, zone_codes TEXT NOT NULL, slot_start TEXT NOT NULL,
+ slot_end TEXT NOT NULL, rationale TEXT NOT NULL, state TEXT NOT NULL,
+ superseded_by INTEGER, decided_at TEXT NOT NULL, created_at TEXT NOT NULL,
+ PRIMARY KEY(event_id,plan_id,version),
+ FOREIGN KEY(event_id) REFERENCES events(id)
+);
+CREATE TABLE IF NOT EXISTS pilot_analyses (
+ event_id TEXT NOT NULL, analysis_id TEXT NOT NULL, snapshot_version INTEGER NOT NULL,
+ source_revision INTEGER NOT NULL, ruleset_version TEXT NOT NULL,
+ payload TEXT NOT NULL, created_at TEXT NOT NULL,
+ PRIMARY KEY(event_id,analysis_id),
+ FOREIGN KEY(event_id) REFERENCES events(id)
+);
 CREATE INDEX IF NOT EXISTS idx_encounters_zone_time ON encounters(event_id,zone_code,occurred_at);
 CREATE INDEX IF NOT EXISTS idx_audit_event ON audit(event_id,seq);
 CREATE INDEX IF NOT EXISTS idx_attendance_team ON attendance(event_id,team_id);
 CREATE INDEX IF NOT EXISTS idx_disputes_card ON score_disputes(event_id,team_id,card_judge_id);
+CREATE INDEX IF NOT EXISTS idx_pilot_plans_lookup ON pilot_plans(event_id,plan_id,version);
+CREATE INDEX IF NOT EXISTS idx_pilot_analyses_event ON pilot_analyses(event_id,analysis_id);
 '''
 
 
